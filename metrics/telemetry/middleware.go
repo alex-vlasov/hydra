@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package metrics
+package telemetry
 
 import (
 	"crypto/sha256"
@@ -94,6 +94,7 @@ func NewMetricsManager(issuerURL string, databaseURL string, l logrus.FieldLogge
 		salt:         uuid.New(),
 		BuildTime:    buildTime, BuildVersion: version, BuildHash: hash,
 	}
+
 	return mm
 }
 
