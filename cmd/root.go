@@ -168,6 +168,15 @@ func initConfig() {
 
 	viper.BindEnv("JWT_PARSE_TIME_WINDOW")
 
+	viper.BindEnv("DISCO_URL")
+	viper.SetDefault("DISCO_URL", "")
+
+	viper.BindEnv("STS_CLIENT_ID")
+	viper.SetDefault("STS_CLIENT_ID", "")
+
+	viper.BindEnv("STS_CLIENT_SECRET")
+	viper.SetDefault("STS_CLIENT_SECRET", "")
+
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
 		fmt.Printf(`Config file not found because "%s"`, err)

@@ -23,6 +23,8 @@ import (
 	"github.com/ory/hydra/pkg"
 	"github.com/ory/hydra/warden/group"
 	"github.com/ory/ladon"
+
+	"github.com/sugarcrm/multiverse/projects/golib/grpc"
 )
 
 type Context struct {
@@ -36,4 +38,6 @@ type Context struct {
 	KeyManager     jwk.Manager
 	ConsentManager hoa2.ConsentRequestManager
 	GroupManager   group.Manager
+
+	GrpcClientFactory *grpc.ClientFactory
 }

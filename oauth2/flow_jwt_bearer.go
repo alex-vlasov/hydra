@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rsa"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/ory/hydra/jwk"
@@ -16,6 +15,12 @@ import (
 	"github.com/ory/fosite/handler/oauth2"
 	"github.com/ory/fosite/handler/openid"
 	"github.com/pkg/errors"
+
+	"github.com/sugarcrm/multiverse/projects/golib/grpc"
+	iamOAuth2 "github.com/sugarcrm/multiverse/projects/golib/oauth2"
+	iamUser "github.com/sugarcrm/multiverse/projects/golib/user"
+	idpApiSdk "github.com/sugarcrm/multiverse/projects/idm/pkg/sdk"
+	"github.com/sugarcrm/multiverse/projects/idm/pkg/srn"
 )
 
 // JWT bearer grant type mark. According to the latest https://tools.ietf.org/html/rfc7523
@@ -30,8 +35,7 @@ func JWTBearerGrantFactory(config *compose.Config, storage interface{}, strategy
 			AccessTokenLifespan: config.GetAccessTokenLifespan(),
 		},
 		ScopeStrategy: fosite.HierarchicScopeStrategy,
-		KeyManager:    storage.(CommonStore).KeyManager,
-		Audience:      strings.Trim(storage.(CommonStore).Issuer, "/") + "/oauth2/token",
+		Storage:       storage,
 	}
 }
 
@@ -39,8 +43,7 @@ func JWTBearerGrantFactory(config *compose.Config, storage interface{}, strategy
 type JWTBearerGrantHandler struct {
 	*oauth2.HandleHelper
 	ScopeStrategy fosite.ScopeStrategy
-	KeyManager    jwk.Manager
-	Audience      string
+	Storage       interface{}
 }
 
 // HandleTokenEndpointRequest implements https://tools.ietf.org/html/rfc7523#section-3
@@ -57,8 +60,8 @@ func (c *JWTBearerGrantHandler) HandleTokenEndpointRequest(ctx context.Context, 
 		return errors.Wrap(fosite.ErrInvalidGrant,
 			fmt.Sprintf("The client is not allowed to use grant type %s", jwtBearerGrantType))
 	}
-
-	for _, scope := range request.GetRequestedScopes() {
+	scopes := request.GetRequestedScopes()
+	for _, scope := range scopes {
 		if !c.ScopeStrategy(client.GetScopes(), scope) {
 			return errors.Wrap(fosite.ErrInvalidScope, fmt.Sprintf("The client is not allowed to request scope %s", scope))
 		}
@@ -79,7 +82,7 @@ func (c *JWTBearerGrantHandler) HandleTokenEndpointRequest(ctx context.Context, 
 		}
 		switch token.Method.(type) {
 		case *jwt.SigningMethodRSA, *jwt.SigningMethodECDSA:
-			ks, err := c.KeyManager.GetKey(keyID, "public")
+			ks, err := c.Storage.(CommonStore).KeyManager.GetKey(keyID, "public")
 			if err != nil {
 				return nil, err
 			}
@@ -127,7 +130,8 @@ func (c *JWTBearerGrantHandler) HandleTokenEndpointRequest(ctx context.Context, 
 		return errors.Wrap(fosite.ErrTokenClaim, "Subject (sub) claim should be a nonempty string")
 	}
 	// For https://tools.ietf.org/html/rfc7523#section-3.3
-	if !claims.VerifyAudience(c.Audience, true) {
+	audience := c.Storage.(CommonStore).Issuer + "/oauth2/token"
+	if !claims.VerifyAudience(audience, true) {
 		return errors.Wrap(fosite.ErrTokenClaim, "Audience (aud) is invalid or missing")
 	}
 	// For https://tools.ietf.org/html/rfc7523#section-3.3
@@ -152,6 +156,18 @@ func (c *JWTBearerGrantHandler) HandleTokenEndpointRequest(ctx context.Context, 
 		return errors.WithStack(openid.ErrInvalidSession)
 	}
 
+	grpcClientFactory := c.Storage.(CommonStore).GrpcClientFactory
+	if grpcClientFactory != nil {
+		userSrn, err := srn.Create(claims["sub"].(string))
+		if err != nil {
+			return errors.Wrap(fosite.ErrInvalidClient, "Can't parse user SRN")
+		}
+		err = c.CheckTenant(ctx, scopes, grpcClientFactory, userSrn)
+		if err != nil {
+			return err
+		}
+	}
+
 	session.SetExpiresAt(fosite.AccessToken, time.Now().Add(c.AccessTokenLifespan))
 	session.Subject = claims["sub"].(string)
 	// Use custom claim for detecting tenant ID.
@@ -172,4 +188,42 @@ func (c *JWTBearerGrantHandler) PopulateTokenEndpointResponse(ctx context.Contex
 	}
 
 	return c.IssueAccessToken(ctx, request, response)
+}
+
+func (c *JWTBearerGrantHandler) CheckTenant(
+	ctx context.Context,
+	scopes fosite.Arguments,
+	grpcClientFactory *grpc.ClientFactory,
+	userSrn *srn.SRN) error {
+
+	oauth2client := iamOAuth2.NewClient(
+		c.Storage.(CommonStore).StsClientId,
+		c.Storage.(CommonStore).StsClientSecret,
+		userSrn.Tenant,
+		c.Storage.(CommonStore).Issuer,
+	)
+
+	oauth2TokenSource, err := iamOAuth2.NewClientCredentialsTokenSource(
+		ctx,
+		oauth2client,
+		scopes...,
+	)
+
+	if err != nil {
+		return errors.Wrap(fosite.ErrInvalidClient, "Can't create token source")
+	}
+
+	clientSdk := idpApiSdk.NewClient(oauth2TokenSource, grpcClientFactory)
+	defer clientSdk.Close()
+
+	idpApiUserApi, err := clientSdk.UserAPI(userSrn.Region)
+	if err != nil {
+		return errors.Wrap(fosite.ErrInvalidClient, "Can't create user api")
+	}
+	userData, err := idpApiUserApi.GetUser(ctx, iamUser.LoadUserRequest(userSrn.ToString()))
+
+	if err != nil || userData.Name != userSrn.ToString() {
+		return errors.Wrap(fosite.ErrInvalidClient, "Client doesn't belong to tenant")
+	}
+	return nil
 }

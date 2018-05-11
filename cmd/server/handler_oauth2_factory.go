@@ -17,8 +17,8 @@ package server
 import (
 	"fmt"
 	"net/url"
-
 	"os"
+	"strings"
 
 	"github.com/gorilla/sessions"
 	"github.com/julienschmidt/httprouter"
@@ -73,7 +73,11 @@ func newOAuth2Provider(c *config.Config, km jwk.Manager) fosite.OAuth2Provider {
 	var store = oauth2.CommonStore{
 		FositeStorer: ctx.FositeStore,
 		KeyManager:   km,
-		Issuer:       c.Issuer,
+		Issuer:       strings.Trim(c.Issuer, "/"),
+
+		GrpcClientFactory: c.Context().GrpcClientFactory,
+		StsClientId:       c.StsClientId,
+		StsClientSecret:   c.StsClientSecret,
 	}
 
 	createRS256KeysIfNotExist(c, oauth2.OpenIDConnectKeyName, "private", "sig")

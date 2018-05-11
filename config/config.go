@@ -45,6 +45,9 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 	"gopkg.in/yaml.v2"
+
+	discoveryClient "github.com/sugarcrm/multiverse/projects/discovery/client"
+	"github.com/sugarcrm/multiverse/projects/golib/grpc"
 )
 
 type Config struct {
@@ -78,6 +81,10 @@ type Config struct {
 	SendOAuth2DebugMessagesToClients bool   `mapstructure:"OAUTH2_SHARE_ERROR_DEBUG" yaml:"-"`
 	ForceHTTP                        bool   `yaml:"-"`
 	JWTParseTimeWindow               uint   `mapstructure:"JWT_PARSE_TIME_WINDOW" yaml:"-"`
+
+	DiscoveryUrl    string `mapstructure:"DISCO_URL" yaml:"-"`
+	StsClientId     string `mapstructure:"STS_CLIENT_ID" yaml:"-"`
+	StsClientSecret string `mapstructure:"STS_CLIENT_SECRET" yaml:"-"`
 
 	BuildVersion string                     `yaml:"-"`
 	BuildHash    string                     `yaml:"-"`
@@ -292,6 +299,13 @@ func (c *Config) Context() *Context {
 		panic("Unknown connection type.")
 	}
 
+	var grpcClientFactory *grpc.ClientFactory
+	if c.DiscoveryUrl != "" {
+		cd := discoveryClient.New(c.DiscoveryUrl)
+		cd.Refresh(context.Background())
+		grpcClientFactory = grpc.NewClientFactory(grpc.WithInsecure(), grpc.WithDisco(cd))
+	}
+
 	c.context = &Context{
 		Connection: connection,
 		Hasher: &fosite.BCrypt{
@@ -306,6 +320,8 @@ func (c *Config) Context() *Context {
 			AuthorizeCodeLifespan: c.GetAuthCodeLifespan(),
 		},
 		GroupManager: groupManager,
+
+		GrpcClientFactory: grpcClientFactory,
 	}
 
 	return c.context

@@ -16,9 +16,11 @@ import (
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/handler/oauth2"
 	"github.com/ory/fosite/handler/openid"
+	"github.com/ory/hydra/pkg"
 	"github.com/pkg/errors"
 	"github.com/square/go-jose"
 	"github.com/stretchr/testify/assert"
+	"github.com/sugarcrm/multiverse/projects/golib/grpc"
 )
 
 func TestJWTBearerFlow_HandleTokenEndpointRequest_Validation(t *testing.T) {
@@ -30,6 +32,20 @@ func TestJWTBearerFlow_HandleTokenEndpointRequest_Validation(t *testing.T) {
 	areq := internal.NewMockAccessRequester(ctrl)
 	client := internal.NewMockClient(ctrl)
 
+	var (
+		fositeStore       pkg.FositeStorer
+		grpcClientFactory *grpc.ClientFactory
+		storage           = CommonStore{
+			FositeStorer: fositeStore,
+			KeyManager:   keyManager,
+			Issuer:       "http://hydra-cluster.url",
+
+			GrpcClientFactory: grpcClientFactory,
+			StsClientId:       "CLIENT_ID",
+			StsClientSecret:   "CLIENT_SECRET",
+		}
+	)
+
 	h := JWTBearerGrantHandler{
 		HandleHelper: &oauth2.HandleHelper{
 			AccessTokenStrategy: strategy,
@@ -37,8 +53,7 @@ func TestJWTBearerFlow_HandleTokenEndpointRequest_Validation(t *testing.T) {
 			AccessTokenLifespan: time.Hour,
 		},
 		ScopeStrategy: fosite.HierarchicScopeStrategy,
-		KeyManager:    keyManager,
-		Audience:      "http://hydra-cluster.url/oauth2/token",
+		Storage:       storage,
 	}
 
 	for k, c := range []struct {
@@ -514,6 +529,20 @@ func TestJWTBearerFlow_HandleTokenEndpointRequest_SessionPopulation(t *testing.T
 	areq := internal.NewMockAccessRequester(ctrl)
 	client := internal.NewMockClient(ctrl)
 
+	var (
+		fositeStore       pkg.FositeStorer
+		grpcClientFactory *grpc.ClientFactory
+		storage           = CommonStore{
+			FositeStorer: fositeStore,
+			KeyManager:   keyManager,
+			Issuer:       "http://hydra-cluster.url",
+
+			GrpcClientFactory: grpcClientFactory,
+			StsClientId:       "CLIENT_ID",
+			StsClientSecret:   "CLIENT_SECRET",
+		}
+	)
+
 	h := JWTBearerGrantHandler{
 		HandleHelper: &oauth2.HandleHelper{
 			AccessTokenStrategy: strategy,
@@ -521,8 +550,7 @@ func TestJWTBearerFlow_HandleTokenEndpointRequest_SessionPopulation(t *testing.T
 			AccessTokenLifespan: time.Hour,
 		},
 		ScopeStrategy: fosite.HierarchicScopeStrategy,
-		KeyManager:    keyManager,
-		Audience:      "http://hydra-cluster.url/oauth2/token",
+		Storage:       storage,
 	}
 
 	client.EXPECT().GetGrantTypes().Return(fosite.Arguments{jwtBearerGrantType})
@@ -573,6 +601,20 @@ func TestJWTBearerFlow_PopulateTokenEndpointResponse(t *testing.T) {
 	areq := fosite.NewAccessRequest(new(fosite.DefaultSession))
 	aresp := fosite.NewAccessResponse()
 
+	var (
+		fositeStore       pkg.FositeStorer
+		grpcClientFactory *grpc.ClientFactory
+		storage           = CommonStore{
+			FositeStorer: fositeStore,
+			KeyManager:   nil,
+			Issuer:       "http://hydra-cluster.url",
+
+			GrpcClientFactory: grpcClientFactory,
+			StsClientId:       "CLIENT_ID",
+			StsClientSecret:   "CLIENT_SECRET",
+		}
+	)
+
 	h := JWTBearerGrantHandler{
 		HandleHelper: &oauth2.HandleHelper{
 			AccessTokenStorage:  store,
@@ -580,8 +622,7 @@ func TestJWTBearerFlow_PopulateTokenEndpointResponse(t *testing.T) {
 			AccessTokenLifespan: time.Hour,
 		},
 		ScopeStrategy: fosite.HierarchicScopeStrategy,
-		KeyManager:    nil,
-		Audience:      "http://hydra-cluster.url/oauth2/token",
+		Storage:       storage,
 	}
 
 	for k, c := range []struct {
