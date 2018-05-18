@@ -49,10 +49,13 @@ func NewMetrics(version, hash, buildTime string) *Metrics {
 		"hash":      hash,
 		"buildTime": buildTime,
 	}
+	namespace, subsystem := "iam", "sts"
 	pm := &Metrics{
 		Counter: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name:        "sts_requests_total",
+				Namespace:   namespace,
+				Subsystem:   subsystem,
+				Name:        "requests_total",
 				Help:        "Secure token service requests served per endpoint",
 				ConstLabels: labels,
 			},
@@ -60,7 +63,9 @@ func NewMetrics(version, hash, buildTime string) *Metrics {
 		),
 		ResponseTime: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Name:        "sts_response_time_seconds",
+				Namespace:   namespace,
+				Subsystem:   subsystem,
+				Name:        "response_time_seconds",
 				Help:        "Secure token service response time",
 				ConstLabels: labels,
 			},
