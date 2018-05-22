@@ -20,7 +20,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/square/go-jose"
 	"github.com/stretchr/testify/assert"
-	"github.com/sugarcrm/multiverse/projects/golib/grpc"
+
+	"github.com/sugarcrm/multiverse/bazel/out/multiverse/projects/golib/grpc"
+	discovery_client "github.com/sugarcrm/multiverse/projects/discovery/client"
 )
 
 func TestJWTBearerFlow_HandleTokenEndpointRequest_Validation(t *testing.T) {
@@ -33,16 +35,14 @@ func TestJWTBearerFlow_HandleTokenEndpointRequest_Validation(t *testing.T) {
 	client := internal.NewMockClient(ctrl)
 
 	var (
-		fositeStore       pkg.FositeStorer
-		grpcClientFactory *grpc.ClientFactory
-		storage           = CommonStore{
+		fositeStore pkg.FositeStorer
+		storage     = CommonStore{
 			FositeStorer: fositeStore,
 			KeyManager:   keyManager,
 			Issuer:       "http://hydra-cluster.url",
 
-			GrpcClientFactory: grpcClientFactory,
-			StsClientId:       "CLIENT_ID",
-			StsClientSecret:   "CLIENT_SECRET",
+			DiscoveryClient:      new(discovery_client.Client),
+			StsClientCredentials: new(StsClientCredentials),
 		}
 	)
 
@@ -530,16 +530,14 @@ func TestJWTBearerFlow_HandleTokenEndpointRequest_SessionPopulation(t *testing.T
 	client := internal.NewMockClient(ctrl)
 
 	var (
-		fositeStore       pkg.FositeStorer
-		grpcClientFactory *grpc.ClientFactory
-		storage           = CommonStore{
+		fositeStore pkg.FositeStorer
+		storage     = CommonStore{
 			FositeStorer: fositeStore,
 			KeyManager:   keyManager,
 			Issuer:       "http://hydra-cluster.url",
 
-			GrpcClientFactory: grpcClientFactory,
-			StsClientId:       "CLIENT_ID",
-			StsClientSecret:   "CLIENT_SECRET",
+			DiscoveryClient:      new(discovery_client.Client),
+			StsClientCredentials: new(StsClientCredentials),
 		}
 	)
 
@@ -606,12 +604,11 @@ func TestJWTBearerFlow_PopulateTokenEndpointResponse(t *testing.T) {
 		grpcClientFactory *grpc.ClientFactory
 		storage           = CommonStore{
 			FositeStorer: fositeStore,
-			KeyManager:   nil,
+			KeyManager:   keyManager,
 			Issuer:       "http://hydra-cluster.url",
 
-			GrpcClientFactory: grpcClientFactory,
-			StsClientId:       "CLIENT_ID",
-			StsClientSecret:   "CLIENT_SECRET",
+			DiscoveryClient:      new(discovery_client.Client),
+			StsClientCredentials: new(StsClientCredentials),
 		}
 	)
 

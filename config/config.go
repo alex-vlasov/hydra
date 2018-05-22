@@ -33,6 +33,7 @@ import (
 	"github.com/ory/hydra/health"
 	"github.com/ory/hydra/metrics/prometheus"
 	"github.com/ory/hydra/metrics/telemetry"
+	hoa2 "github.com/ory/hydra/oauth2"
 	"github.com/ory/hydra/pkg"
 	"github.com/ory/hydra/warden/group"
 	"github.com/ory/ladon"
@@ -46,8 +47,7 @@ import (
 	"golang.org/x/oauth2/clientcredentials"
 	"gopkg.in/yaml.v2"
 
-	discoveryClient "github.com/sugarcrm/multiverse/projects/discovery/client"
-	"github.com/sugarcrm/multiverse/projects/golib/grpc"
+	discovery_client "github.com/sugarcrm/multiverse/projects/discovery/client"
 )
 
 type Config struct {
@@ -82,9 +82,7 @@ type Config struct {
 	ForceHTTP                        bool   `yaml:"-"`
 	JWTParseTimeWindow               uint   `mapstructure:"JWT_PARSE_TIME_WINDOW" yaml:"-"`
 
-	DiscoveryUrl    string `mapstructure:"DISCO_URL" yaml:"-"`
-	StsClientId     string `mapstructure:"STS_CLIENT_ID" yaml:"-"`
-	StsClientSecret string `mapstructure:"STS_CLIENT_SECRET" yaml:"-"`
+	DiscoveryUrl string `mapstructure:"DISCO_URL" yaml:"-"`
 
 	BuildVersion string                     `yaml:"-"`
 	BuildHash    string                     `yaml:"-"`
@@ -299,11 +297,12 @@ func (c *Config) Context() *Context {
 		panic("Unknown connection type.")
 	}
 
-	var grpcClientFactory *grpc.ClientFactory
+	var discoveryClient *discovery_client.Client
 	if c.DiscoveryUrl != "" {
-		cd := discoveryClient.New(c.DiscoveryUrl)
-		cd.Refresh(context.Background())
-		grpcClientFactory = grpc.NewClientFactory(grpc.WithInsecure(), grpc.WithDisco(cd))
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		discoveryClient = discovery_client.New(c.DiscoveryUrl)
+		discoveryClient.Refresh(ctx)
 	}
 
 	c.context = &Context{
@@ -321,7 +320,8 @@ func (c *Config) Context() *Context {
 		},
 		GroupManager: groupManager,
 
-		GrpcClientFactory: grpcClientFactory,
+		DiscoveryClient:      discoveryClient,
+		StsClientCredentials: new(hoa2.StsClientCredentials),
 	}
 
 	return c.context

@@ -43,6 +43,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/urfave/negroni"
+
+	iam_oauth2 "github.com/sugarcrm/multiverse/projects/golib/oauth2"
 )
 
 func parseCorsOptions() cors.Options {
@@ -111,6 +113,17 @@ func RunHost(c *config.Config) func(cmd *cobra.Command, args []string) {
 
 		n.Use(c.GetPrometheusMetrics())
 
+		configFile, err := cmd.Flags().GetString("client-creds-path")
+		if err == nil {
+			oauth2Client, err := iam_oauth2.LoadClientFromFile(configFile)
+			if err != nil {
+				logger.Fatalf("Can not load secret client %s", err)
+			} else {
+				c.Context().StsClientCredentials.Id = oauth2Client.ClientId
+				c.Context().StsClientCredentials.Secret = oauth2Client.ClientSecret
+			}
+		}
+
 		n.Use(negronilogrus.NewMiddlewareFromLogger(logger, c.Issuer))
 		n.UseFunc(serverHandler.rejectInsecureRequests)
 		n.UseHandler(router)
@@ -124,7 +137,7 @@ func RunHost(c *config.Config) func(cmd *cobra.Command, args []string) {
 			},
 		})
 
-		err := graceful.Graceful(func() error {
+		err = graceful.Graceful(func() error {
 			var err error
 			logger.Infof("Setting up http server on %s", c.GetAddress())
 			if c.ForceHTTP {

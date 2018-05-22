@@ -24,7 +24,7 @@ import (
 	"github.com/ory/hydra/warden/group"
 	"github.com/ory/ladon"
 
-	"github.com/sugarcrm/multiverse/projects/golib/grpc"
+	discovery_client "github.com/sugarcrm/multiverse/projects/discovery/client"
 )
 
 type Context struct {
@@ -39,5 +39,6 @@ type Context struct {
 	ConsentManager hoa2.ConsentRequestManager
 	GroupManager   group.Manager
 
-	GrpcClientFactory *grpc.ClientFactory
+	DiscoveryClient      *discovery_client.Client
+	StsClientCredentials *hoa2.StsClientCredentials
 }

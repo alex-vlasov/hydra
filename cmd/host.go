@@ -212,4 +212,5 @@ func init() {
 	hostCmd.Flags().Bool("disable-telemetry", false, "Disable telemetry collection and sharing - for more information please visit https://ory.gitbooks.io/hydra/content/telemetry.html")
 	hostCmd.Flags().String("https-tls-key-path", "", "Path to the key file for HTTP/2 over TLS (https). You can set HTTPS_TLS_KEY_PATH or HTTPS_TLS_KEY instead.")
 	hostCmd.Flags().String("https-tls-cert-path", "", "Path to the certificate file for HTTP/2 over TLS (https). You can set HTTPS_TLS_CERT_PATH or HTTPS_TLS_CERT instead.")
+	hostCmd.Flags().String("client-creds-path", "", "Path to the secret client.json")
 }

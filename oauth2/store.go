@@ -4,15 +4,14 @@ import (
 	"github.com/ory/hydra/jwk"
 	"github.com/ory/hydra/pkg"
 
-	"github.com/sugarcrm/multiverse/projects/golib/grpc"
+	discovery_client "github.com/sugarcrm/multiverse/projects/discovery/client"
 )
 
 // CommonStore is Hydra specific store that obtains additional information for the application.
 type CommonStore struct {
 	pkg.FositeStorer
-	KeyManager        jwk.Manager
-	Issuer            string
-	GrpcClientFactory *grpc.ClientFactory
-	StsClientId       string
-	StsClientSecret   string
+	KeyManager           jwk.Manager
+	Issuer               string
+	DiscoveryClient      *discovery_client.Client
+	StsClientCredentials *StsClientCredentials
 }
