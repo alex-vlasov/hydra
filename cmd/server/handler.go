@@ -114,7 +114,7 @@ func RunHost(c *config.Config) func(cmd *cobra.Command, args []string) {
 		n.Use(c.GetPrometheusMetrics())
 
 		configFile, err := cmd.Flags().GetString("client-creds-path")
-		if err == nil {
+		if err == nil && configFile != "" {
 			oauth2Client, err := iam_oauth2.LoadClientFromFile(configFile)
 			if err != nil {
 				logger.Fatalf("Can not load secret client %s", err)
