@@ -45,6 +45,7 @@ import (
 	"github.com/urfave/negroni"
 
 	iam_oauth2 "github.com/sugarcrm/multiverse/projects/golib/oauth2"
+	iam_client "github.com/sugarcrm/multiverse/projects/idm/pkg/idp/api/client"
 )
 
 func parseCorsOptions() cors.Options {
@@ -114,13 +115,16 @@ func RunHost(c *config.Config) func(cmd *cobra.Command, args []string) {
 		n.Use(c.GetPrometheusMetrics())
 
 		configFile, err := cmd.Flags().GetString("client-creds-path")
-		if err == nil && configFile != "" {
+		if c.Context().IamUserClient != nil && err == nil && configFile != "" {
 			oauth2Client, err := iam_oauth2.LoadClientFromFile(configFile)
 			if err != nil {
 				logger.Fatalf("Can not load secret client %s", err)
 			} else {
-				c.Context().StsClientCredentials.Id = oauth2Client.ClientId
-				c.Context().StsClientCredentials.Secret = oauth2Client.ClientSecret
+				c.Context().IamUserClient.SetStsClientCredentials(&iam_client.StsClientCredentials{
+					ID: oauth2Client.ClientId,
+					Secret: oauth2Client.ClientSecret,
+					Issuer: strings.Trim(c.Issuer, "/"),
+				})
 			}
 		}
 
