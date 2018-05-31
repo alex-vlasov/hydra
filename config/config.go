@@ -33,6 +33,7 @@ import (
 	"github.com/ory/hydra/health"
 	"github.com/ory/hydra/metrics/prometheus"
 	"github.com/ory/hydra/metrics/telemetry"
+	hoa2 "github.com/ory/hydra/oauth2"
 	"github.com/ory/hydra/pkg"
 	"github.com/ory/hydra/warden/group"
 	"github.com/ory/ladon"
@@ -46,7 +47,7 @@ import (
 	"golang.org/x/oauth2/clientcredentials"
 	"gopkg.in/yaml.v2"
 
-	iam_client "github.com/sugarcrm/multiverse/projects/idm/pkg/idp/api/client"
+	discovery_client "github.com/sugarcrm/multiverse/projects/discovery/client"
 )
 
 type Config struct {
@@ -296,13 +297,12 @@ func (c *Config) Context() *Context {
 		panic("Unknown connection type.")
 	}
 
-	var iamUserClient *iam_client.UserClient
+	var discoveryClient *discovery_client.Client
 	if c.DiscoveryUrl != "" {
-		iamUserClient = iam_client.NewUserClient()
-		err := iamUserClient.CreateDiscoveryClient(c.DiscoveryUrl)
-		if err != nil {
-			c.GetLogger().Fatalf("Could not load discovery services: %s", err)
-		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		discoveryClient = discovery_client.New(c.DiscoveryUrl)
+		discoveryClient.Refresh(ctx)
 	}
 
 	c.context = &Context{
@@ -320,7 +320,8 @@ func (c *Config) Context() *Context {
 		},
 		GroupManager: groupManager,
 
-		IamUserClient: iamUserClient,
+		DiscoveryClient:      discoveryClient,
+		StsClientCredentials: new(hoa2.StsClientCredentials),
 	}
 
 	return c.context

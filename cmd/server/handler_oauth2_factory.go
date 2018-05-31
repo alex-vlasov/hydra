@@ -75,7 +75,8 @@ func newOAuth2Provider(c *config.Config, km jwk.Manager) fosite.OAuth2Provider {
 		FositeStorer:         ctx.FositeStore,
 		KeyManager:           km,
 		Issuer:               strings.Trim(c.Issuer, "/"),
-		IamUserClient:        c.Context().IamUserClient,
+		DiscoveryClient:      c.Context().DiscoveryClient,
+		StsClientCredentials: c.Context().StsClientCredentials,
 	}
 
 	createRS256KeysIfNotExist(c, oauth2.OpenIDConnectKeyName, "private", "sig")
