@@ -232,8 +232,10 @@ func (c *JWTBearerGrantHandler) CheckTenant(
 		return errors.Wrap(fosite.ErrInvalidClient, "Can't create token source")
 	}
 
-    clientSdk := idp_api_sdk.NewClient(grpc.NewClientFactory(grpc.WithDisco(discoveryClient)))
-    ctx = iam_oauth2.WithTokenSource(ctx, oauth2TokenSource)
+    clientSdk := idp_api_sdk.NewClient(grpc.NewClientFactory(
+        grpc.WithDisco(discoveryClient),
+        grpc.WithRPCCredentials(&grpc.BearerFromTokenSource{TokenSource: oauth2TokenSource}),
+    ))
 	defer clientSdk.Close()
 
 	idpApiUserApi, err := clientSdk.UserAPI(userSrn.Region)
