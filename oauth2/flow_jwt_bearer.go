@@ -15,13 +15,6 @@ import (
 	"github.com/ory/fosite/handler/oauth2"
 	"github.com/ory/fosite/handler/openid"
 	"github.com/pkg/errors"
-
-	discovery_client "github.com/sugarcrm/multiverse/projects/discovery/client"
-	"github.com/sugarcrm/multiverse/projects/golib/grpc"
-	iam_oauth2 "github.com/sugarcrm/multiverse/projects/golib/oauth2"
-	iam_helper "github.com/sugarcrm/multiverse/projects/idm/pkg/helpers"
-	idp_api_sdk "github.com/sugarcrm/multiverse/projects/idm/pkg/sdk"
-	"github.com/sugarcrm/multiverse/projects/idm/pkg/srn"
 )
 
 // JWT bearer grant type mark. According to the latest https://tools.ietf.org/html/rfc7523
@@ -38,12 +31,6 @@ func JWTBearerGrantFactory(config *compose.Config, storage interface{}, strategy
 		ScopeStrategy: fosite.HierarchicScopeStrategy,
 		Storage:       storage,
 	}
-}
-
-// We need additional struct to avoid circle dependencies between oauth2 and config
-type StsClientCredentials struct {
-	Id     string
-	Secret string
 }
 
 // JWTBearerGrantHandler handles JWT bearer flow
@@ -163,23 +150,17 @@ func (c *JWTBearerGrantHandler) HandleTokenEndpointRequest(ctx context.Context, 
 		return errors.WithStack(openid.ErrInvalidSession)
 	}
 
-	discoveryClient := c.Storage.(CommonStore).DiscoveryClient
-	if discoveryClient != nil {
-		userSrn, err := srn.Create(claims["sub"].(string))
-		if err != nil {
-			return errors.Wrap(fosite.ErrInvalidClient, "Can't parse user SRN")
+	idpAPIClientHelper := c.Storage.(CommonStore).IdpAPIClientHelper
+	if idpAPIClientHelper != nil {
+		userID, ok := claims["sub"].(string)
+		if !ok {
+			return errors.Wrap(fosite.ErrInvalidClient, "Can't convert user srn in string")
 		}
-
-		// Need this check later
-		//tenantSrn, err := srn.Create(client.GetID())
-		//if err != nil {
-		//	return errors.Wrap(fosite.ErrInvalidClient, "Can't parse tenant SRN")
-		//}
-		//if (tenantSrn.Tenant != userSrn.Tenant) {
-		//	return errors.Wrap(fosite.ErrInvalidClient, "Client doesn't belong to tenant")
-		//}
-
-		err = c.CheckTenant(ctx, scopes, discoveryClient, userSrn)
+		err := idpAPIClientHelper.CheckClientAndUserTenant(userID, client.GetID())
+		if err != nil {
+			return err
+		}
+		err = idpAPIClientHelper.UserExists(ctx, userID)
 		if err != nil {
 			return err
 		}
@@ -205,46 +186,4 @@ func (c *JWTBearerGrantHandler) PopulateTokenEndpointResponse(ctx context.Contex
 	}
 
 	return c.IssueAccessToken(ctx, request, response)
-}
-
-func (c *JWTBearerGrantHandler) CheckTenant(
-	ctx context.Context,
-	scopes fosite.Arguments,
-	discoveryClient *discovery_client.Client,
-	userSrn *srn.SRN) error {
-
-	oauth2client := iam_helper.NewClient(
-		c.Storage.(CommonStore).StsClientCredentials.Id,
-		c.Storage.(CommonStore).StsClientCredentials.Secret,
-		userSrn.Tenant,
-		c.Storage.(CommonStore).Issuer,
-		"",
-		"",
-		"",
-	)
-	oauth2TokenSource, err := iam_oauth2.NewClientCredentialsTokenSource(
-		ctx,
-		oauth2client,
-		scopes...,
-	)
-
-	if err != nil {
-		return errors.Wrap(fosite.ErrInvalidClient, "Can't create token source")
-	}
-
-    clientSdk := idp_api_sdk.NewClient(grpc.NewClientFactory(
-        grpc.WithDisco(discoveryClient),
-        grpc.WithRPCCredentials(&grpc.BearerFromTokenSource{TokenSource: oauth2TokenSource}),
-    ))
-	defer clientSdk.Close()
-
-	idpApiUserApi, err := clientSdk.UserAPI(userSrn.Region)
-	if err != nil {
-		return errors.Wrap(fosite.ErrInvalidClient, "Can't create user api")
-	}
-	userData, err := idpApiUserApi.GetUser(ctx, iam_helper.LoadUserRequest(userSrn.ToString()))
-	if err != nil || userData.Name != userSrn.ToString() {
-		return errors.Wrap(fosite.ErrInvalidClient, "Client doesn't belong to tenant")
-	}
-	return nil
 }

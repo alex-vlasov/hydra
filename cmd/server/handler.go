@@ -45,6 +45,7 @@ import (
 	"github.com/urfave/negroni"
 
 	iam_oauth2 "github.com/sugarcrm/multiverse/projects/golib/oauth2"
+	idm_hydra "github.com/sugarcrm/multiverse/projects/idm/pkg/hydra"
 )
 
 func parseCorsOptions() cors.Options {
@@ -114,13 +115,21 @@ func RunHost(c *config.Config) func(cmd *cobra.Command, args []string) {
 		n.Use(c.GetPrometheusMetrics())
 
 		configFile, err := cmd.Flags().GetString("client-creds-path")
-		if err == nil && configFile != "" {
+		if c.Context().IdpAPIClientHelper != nil && err == nil && configFile != "" {
 			oauth2Client, err := iam_oauth2.LoadClientFromFile(configFile)
 			if err != nil {
 				logger.Fatalf("Can not load secret client %s", err)
 			} else {
-				c.Context().StsClientCredentials.Id = oauth2Client.ClientId
-				c.Context().StsClientCredentials.Secret = oauth2Client.ClientSecret
+				issuer := strings.Trim(c.Issuer, "/")
+				c.Context().IdpAPIClientHelper.SetUserAPI(
+					&idm_hydra.StsClientCredentials{
+						ID:       oauth2Client.ClientId,
+						Secret:   oauth2Client.ClientSecret,
+						Issuer:   issuer,
+						TokenURI: issuer + oauth2.TokenPath,
+					},
+					c.IdmRegion,
+				)
 			}
 		}
 

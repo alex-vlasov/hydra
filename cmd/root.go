@@ -171,6 +171,9 @@ func initConfig() {
 	viper.BindEnv("DISCO_URL")
 	viper.SetDefault("DISCO_URL", "")
 
+	viper.BindEnv("IDM_REGION")
+	viper.SetDefault("IDM_REGION", "")
+
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
 		fmt.Printf(`Config file not found because "%s"`, err)

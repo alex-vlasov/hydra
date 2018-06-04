@@ -33,7 +33,6 @@ import (
 	"github.com/ory/hydra/health"
 	"github.com/ory/hydra/metrics/prometheus"
 	"github.com/ory/hydra/metrics/telemetry"
-	hoa2 "github.com/ory/hydra/oauth2"
 	"github.com/ory/hydra/pkg"
 	"github.com/ory/hydra/warden/group"
 	"github.com/ory/ladon"
@@ -47,7 +46,7 @@ import (
 	"golang.org/x/oauth2/clientcredentials"
 	"gopkg.in/yaml.v2"
 
-	discovery_client "github.com/sugarcrm/multiverse/projects/discovery/client"
+	idm_hydra "github.com/sugarcrm/multiverse/projects/idm/pkg/hydra"
 )
 
 type Config struct {
@@ -83,6 +82,7 @@ type Config struct {
 	JWTParseTimeWindow               uint   `mapstructure:"JWT_PARSE_TIME_WINDOW" yaml:"-"`
 
 	DiscoveryUrl string `mapstructure:"DISCO_URL" yaml:"-"`
+	IdmRegion    string `mapstructure:"IDM_REGION" yaml:"-"`
 
 	BuildVersion string                     `yaml:"-"`
 	BuildHash    string                     `yaml:"-"`
@@ -297,12 +297,15 @@ func (c *Config) Context() *Context {
 		panic("Unknown connection type.")
 	}
 
-	var discoveryClient *discovery_client.Client
+	var (
+		idpAPIClientHelper *idm_hydra.IdpAPIClientHelper
+		err                error
+	)
 	if c.DiscoveryUrl != "" {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		discoveryClient = discovery_client.New(c.DiscoveryUrl)
-		discoveryClient.Refresh(ctx)
+		idpAPIClientHelper, err = idm_hydra.NewIdpAPIClientHelper(c.DiscoveryUrl)
+		if err != nil {
+			c.GetLogger().Fatalf("Could not load discovery services: %s", err)
+		}
 	}
 
 	c.context = &Context{
@@ -318,10 +321,8 @@ func (c *Config) Context() *Context {
 			AccessTokenLifespan:   c.GetAccessTokenLifespan(),
 			AuthorizeCodeLifespan: c.GetAuthCodeLifespan(),
 		},
-		GroupManager: groupManager,
-
-		DiscoveryClient:      discoveryClient,
-		StsClientCredentials: new(hoa2.StsClientCredentials),
+		GroupManager:       groupManager,
+		IdpAPIClientHelper: idpAPIClientHelper,
 	}
 
 	return c.context

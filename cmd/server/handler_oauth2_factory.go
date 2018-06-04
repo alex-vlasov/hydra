@@ -72,11 +72,10 @@ func injectFositeStore(c *config.Config, clients client.Manager) {
 func newOAuth2Provider(c *config.Config, km jwk.Manager) fosite.OAuth2Provider {
 	var ctx = c.Context()
 	var store = oauth2.CommonStore{
-		FositeStorer:         ctx.FositeStore,
-		KeyManager:           km,
-		Issuer:               strings.Trim(c.Issuer, "/"),
-		DiscoveryClient:      c.Context().DiscoveryClient,
-		StsClientCredentials: c.Context().StsClientCredentials,
+		FositeStorer:       ctx.FositeStore,
+		KeyManager:         km,
+		Issuer:             strings.Trim(c.Issuer, "/"),
+		IdpAPIClientHelper: ctx.IdpAPIClientHelper,
 	}
 
 	createRS256KeysIfNotExist(c, oauth2.OpenIDConnectKeyName, "private", "sig")

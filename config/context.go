@@ -24,7 +24,7 @@ import (
 	"github.com/ory/hydra/warden/group"
 	"github.com/ory/ladon"
 
-	discovery_client "github.com/sugarcrm/multiverse/projects/discovery/client"
+	idm_hydra "github.com/sugarcrm/multiverse/projects/idm/pkg/hydra"
 )
 
 type Context struct {
@@ -39,6 +39,5 @@ type Context struct {
 	ConsentManager hoa2.ConsentRequestManager
 	GroupManager   group.Manager
 
-	DiscoveryClient      *discovery_client.Client
-	StsClientCredentials *hoa2.StsClientCredentials
+	IdpAPIClientHelper *idm_hydra.IdpAPIClientHelper
 }
