@@ -118,7 +118,7 @@ func RunHost(c *config.Config) func(cmd *cobra.Command, args []string) {
 		if c.Context().IdpAPIClientHelper != nil && err == nil && configFile != "" {
 			oauth2Client, err := iam_oauth2.LoadClientFromFile(configFile)
 			if err != nil {
-				logger.Fatalf("Can not load secret client %s", err)
+				logger.Fatalf("Cannot load client %s", err)
 			} else {
 				issuer := strings.Trim(c.Issuer, "/")
 				c.Context().IdpAPIClientHelper.SetUserAPI(
@@ -126,7 +126,7 @@ func RunHost(c *config.Config) func(cmd *cobra.Command, args []string) {
 						ID:       oauth2Client.ClientId,
 						Secret:   oauth2Client.ClientSecret,
 						Issuer:   issuer,
-						TokenURI: issuer + oauth2.TokenPath,
+						TokenURI: c.ClusterURL + oauth2.TokenPath, // workaround to request it directly
 					},
 					c.IdmRegion,
 				)
